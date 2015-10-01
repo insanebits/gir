@@ -155,12 +155,17 @@ impl Library {
     fn read_class(&mut self, parser: &mut Reader,
                   ns_id: u16, attrs: &Attributes) -> Result<(), Error> {
         let name = try!(attrs.get("name").ok_or_else(|| mk_error!("Missing class name", parser)));
-        let c_type = try!(attrs.get("type").or_else(|| attrs.get("type-name"))
-            .ok_or_else(|| mk_error!("Missing c:type/glib:type-name attributes", parser)));
+        let c_type = try!(attrs.get("type")
+            .or_else(|| attrs.get("type-name"))
+            .ok_or_else(|| mk_error!("Missing c:type/glib:type-name attributes", parser))
+        );
+        
         let get_type = try!(attrs.get("get-type")
             .ok_or_else(|| mk_error!("Missing get-type attribute", parser)));
         let mut fns = Vec::new();
         let mut impls = Vec::new();
+        let mut documentation = String::new();
+        
         loop {
             let event = parser.next();
             match event {
@@ -170,9 +175,11 @@ impl Library {
                             try!(self.read_function_to_vec(parser, ns_id, kind, &attributes, &mut fns)),
                         "implements" =>
                             impls.push(try!(self.read_type(parser, ns_id, &name, &attributes)).0),
-                        "field" | "property"
-                            | "signal" | "virtual-method" => try!(ignore_element(parser)),
-                        "doc" | "doc-deprecated" => try!(ignore_element(parser)),
+                        "field" | "property" | "signal" | "virtual-method" => 
+                            try!(ignore_element(parser)),
+                        "doc" | "doc-deprecated" => {
+                            documentation = self.read_documentation(parser, ns_id).unwrap();
+                        },
                         x => return Err(mk_error!(format!("Unexpected element <{}>", x), parser)),
                     }
                 }
@@ -190,6 +197,7 @@ impl Library {
                 functions: fns,
                 parent: parent,
                 implements: impls,
+                documentation: documentation,
                 .. Class::default()
             });
         self.add_type(ns_id, name, typ);
@@ -861,6 +869,31 @@ impl Library {
             };
             Ok((tid, c_type))
         }
+    }
+    
+    fn read_documentation(&mut self, parser: &mut Reader, ns_id: u16) -> Result<String, Error>
+    {
+        let mut documentation = String::new();
+        
+        loop {
+            let event = parser.next();
+            match event {
+                XmlEvent::Characters(chars) => {
+                    println!("Found documentation: {}", chars);
+                    documentation = chars.to_string();
+                }, 
+                // not sure what else besides characters can be there
+                // maybe CDATA ?
+                // xml comments and whitespace wouldn't be relevant for us anyway
+                
+                EndElement { .. } => break,
+                _ => xml_try!(event, parser),
+            }
+        }
+        
+        // TODO convert docs to markdown
+        
+        return Ok(documentation);
     }
 }
 

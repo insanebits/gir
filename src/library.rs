@@ -290,6 +290,7 @@ pub struct Class {
     pub parents: Vec<TypeId>,
     pub children: HashSet<TypeId>,
     pub implements: Vec<TypeId>,
+    pub documentation: String,
 }
 
 macro_rules! impl_lexical_ord {

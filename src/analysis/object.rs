@@ -24,6 +24,8 @@ pub struct Info {
     pub has_functions: bool,
     pub imports: Imports,
     pub version: Option<Version>,
+    // usually object description
+    pub documentation: Option<String>,
 }
 
 impl Info {
